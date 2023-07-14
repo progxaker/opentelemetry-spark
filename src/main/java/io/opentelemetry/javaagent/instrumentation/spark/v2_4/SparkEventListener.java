@@ -115,14 +115,14 @@ public class SparkEventListener {
     ActiveJob firstJob = ApacheSparkSingletons.findJob(jobId);
     Context firstJobContext = ApacheSparkSingletons.getJobContext(firstJob);
 
-    Integer attemptId = stageInfo.attemptId();
+    Integer attemptId = stageInfo.attemptNumber();
 
     SpanBuilder builder =
         ApacheSparkSingletons.TRACER
             .spanBuilder(String.format("Stage %s", stage.id()))
             .setParent(firstJobContext)
             .setAttribute("stage_id", stageId)
-            .setAttribute("stage_atteampt_id", attemptId)
+            .setAttribute("stage_attempt_id", attemptId)
             .setStartTimestamp((Long) stageInfo.submissionTime().get(), TimeUnit.MILLISECONDS);
 
     for (Object id : JavaConversions.asJavaCollection(stage.jobIds())) {
