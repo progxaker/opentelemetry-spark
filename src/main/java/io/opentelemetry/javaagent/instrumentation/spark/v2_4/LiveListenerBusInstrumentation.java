@@ -31,26 +31,7 @@ public class LiveListenerBusInstrumentation implements TypeInstrumentation {
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void onEnter(
         @Advice.This LiveListenerBus bus, @Advice.Argument(value = 0) SparkListenerEvent event) {
-
-      if (event instanceof SparkListenerApplicationStart) {
-        SparkEventListener.onApplicationStart((SparkListenerApplicationStart) event);
-      } else if (event instanceof SparkListenerApplicationEnd) {
-        SparkEventListener.onApplicationEnd((SparkListenerApplicationEnd) event);
-      } else if (event instanceof SparkListenerJobStart) {
-        SparkEventListener.onJobStart((SparkListenerJobStart) event);
-      } else if (event instanceof SparkListenerJobEnd) {
-        SparkEventListener.onJobEnd((SparkListenerJobEnd) event);
-      } else if (event instanceof SparkListenerStageSubmitted) {
-        SparkEventListener.onStageSubmitted((SparkListenerStageSubmitted) event);
-      } else if (event instanceof SparkListenerStageCompleted) {
-        SparkEventListener.onStageCompleted((SparkListenerStageCompleted) event);
-      } else if (event instanceof SparkListenerTaskStart) {
-        SparkEventListener.onTaskStart((SparkListenerTaskStart) event);
-      } else if (event instanceof SparkListenerTaskEnd) {
-        SparkEventListener.onTaskEnd((SparkListenerTaskEnd) event);
-      } else {
-        SparkEventListener.onOtherEvent(event);
-      }
+      SparkEventListener.handleSparkListenerEvent(event);
     }
   }
 }
