@@ -27,7 +27,7 @@ public class ApacheSparkSingletons {
       new PropertiesTextMapAccessor();
 
   public static final Tracer TRACER =
-      OPEN_TELEMETRY.getTracer("io.opentelemetry.apache-spark", "0.3.0");
+      OPEN_TELEMETRY.getTracer("io.opentelemetry.apache-spark", "0.4.0");
   private static Instrumenter<TaskDescription, Object> TASK_RUNNER_INSTRUMENTER = null;
 
   public static final VirtualField<Stage, Context> STAGE_CONTEXT_VIRTUAL_FIELD =
