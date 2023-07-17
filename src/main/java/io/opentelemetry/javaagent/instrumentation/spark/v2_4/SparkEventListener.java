@@ -72,18 +72,12 @@ public class SparkEventListener {
 
     String eventName = event.getClass().getSimpleName();
     Attributes attrs =
-        Attributes.of(
-            EVENT_NAME_ATTR_KEY,
-            eventName,
-            EVENT_DOMAIN_ATTR_KEY,
-            SPARK_EVENT_DOMAIN,
-            SPARK_EVENT_ATTR_KEY,
-            eventJson);
+        Attributes.of(EVENT_NAME_ATTR_KEY, eventName, EVENT_DOMAIN_ATTR_KEY, SPARK_EVENT_DOMAIN);
 
     if (time != null) {
-      s.addEvent(eventName, attrs, time, TimeUnit.MILLISECONDS);
+      s.addEvent(eventJson, attrs, time, TimeUnit.MILLISECONDS);
     } else {
-      s.addEvent(eventName, attrs);
+      s.addEvent(eventJson, attrs);
     }
   }
 
