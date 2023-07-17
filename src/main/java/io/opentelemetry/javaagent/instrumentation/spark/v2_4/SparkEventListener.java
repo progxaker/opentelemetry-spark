@@ -40,8 +40,8 @@ public class SparkEventListener {
   private static final AttributeKey<Long> SPARK_STAGE_ID_ATTR_KEY =
       AttributeKey.longKey("spark.stage_id");
 
-  private static final AttributeKey<Long> SPARK_STAGE_ATTEMPT_ID_ATTR_KEY =
-      AttributeKey.longKey("spark.stage_attempt_id");
+  private static final AttributeKey<Long> SPARK_STAGE_ATTEMPT_NUMBER_ATTR_KEY =
+      AttributeKey.longKey("spark.stage_attempt_number");
 
   private static final String SPARK_EVENT_DOMAIN = "spark";
 
@@ -51,7 +51,7 @@ public class SparkEventListener {
     // spark.app.name
     applicationSpan =
         ApacheSparkSingletons.TRACER
-            .spanBuilder("spark-application")
+            .spanBuilder("spark_application")
             .setParent(Context.current())
             .setAttribute(SPARK_APPLICATION_NAME_ATTR_KEY, applicationName)
             .startSpan();
@@ -99,7 +99,7 @@ public class SparkEventListener {
 
     Span jobSpan =
         ApacheSparkSingletons.TRACER
-            .spanBuilder("spark-job")
+            .spanBuilder("spark_job")
             .setAttribute(SPARK_JOB_ID_ATTR_KEY, Long.valueOf(jobId))
             .setParent(parentContext)
             .setStartTimestamp(event.time(), TimeUnit.MILLISECONDS)
@@ -154,10 +154,10 @@ public class SparkEventListener {
 
     SpanBuilder builder =
         ApacheSparkSingletons.TRACER
-            .spanBuilder("spark-stage")
+            .spanBuilder("spark_stage")
             .setParent(firstJobContext)
             .setAttribute(SPARK_STAGE_ID_ATTR_KEY, Long.valueOf(stageId))
-            .setAttribute(SPARK_STAGE_ATTEMPT_ID_ATTR_KEY, Long.valueOf(attemptId))
+            .setAttribute(SPARK_STAGE_ATTEMPT_NUMBER_ATTR_KEY, Long.valueOf(attemptId))
             .setStartTimestamp((Long) stageInfo.submissionTime().get(), TimeUnit.MILLISECONDS);
 
     for (Object id : JavaConversions.asJavaCollection(stage.jobIds())) {
