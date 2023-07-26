@@ -1,4 +1,4 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v3;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
 import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.context.propagation.TextMapSetter;

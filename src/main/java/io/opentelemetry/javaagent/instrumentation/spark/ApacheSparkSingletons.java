@@ -1,4 +1,4 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v3;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;
@@ -10,11 +10,14 @@ import io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor;
 import io.opentelemetry.instrumentation.api.instrumenter.Instrumenter;
 import io.opentelemetry.instrumentation.api.instrumenter.SpanNameExtractor;
 import io.opentelemetry.instrumentation.api.util.VirtualField;
-import java.lang.reflect.Method;
-import java.util.*;
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.spark.executor.Executor;
-import org.apache.spark.scheduler.*;
+import org.apache.spark.scheduler.ActiveJob;
+import org.apache.spark.scheduler.Stage;
+import org.apache.spark.scheduler.TaskDescription;
 
 public class ApacheSparkSingletons {
 
@@ -61,7 +64,7 @@ public class ApacheSparkSingletons {
             @Nullable Throwable error) {}
       };
 
-  private static Method taskDescriptionAccessor = null;
+  private static Field taskDescriptionAccessor = null;
 
   private static final Map<Integer, ActiveJob> JOB_REGISTRY = new HashMap<>();
 
@@ -104,6 +107,21 @@ public class ApacheSparkSingletons {
       initTaskInstrumenter();
     }
     return TASK_RUNNER_INSTRUMENTER;
+  }
+
+  public static TaskDescription getTaskDescription(Executor.TaskRunner taskRunner)
+      throws IllegalAccessException {
+    if (taskDescriptionAccessor == null) {
+      Class taskRunnerClass = org.apache.spark.executor.Executor.TaskRunner.class;
+      for (Field f : taskRunnerClass.getDeclaredFields()) {
+        if (f.getType().equals(TaskDescription.class)) {
+          taskDescriptionAccessor = f;
+        }
+      }
+      taskDescriptionAccessor.setAccessible(true);
+    }
+
+    return (TaskDescription) taskDescriptionAccessor.get(taskRunner);
   }
 
   private ApacheSparkSingletons() {}

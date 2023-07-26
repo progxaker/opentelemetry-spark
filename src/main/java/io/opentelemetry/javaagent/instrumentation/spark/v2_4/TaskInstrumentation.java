@@ -1,12 +1,13 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v3;
+package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
 
-import static io.opentelemetry.javaagent.instrumentation.spark.v3.ApacheSparkSingletons.OPEN_TELEMETRY;
-import static io.opentelemetry.javaagent.instrumentation.spark.v3.ApacheSparkSingletons.PROPERTIES_TEXT_MAP_ACCESSOR;
+import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.OPEN_TELEMETRY;
+import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.PROPERTIES_TEXT_MAP_ACCESSOR;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
 import io.opentelemetry.context.Context;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
+import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
 import java.util.Properties;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
@@ -49,8 +50,6 @@ public class TaskInstrumentation implements TypeInstrumentation {
         scala.Option appId,
         scala.Option appAttemptId,
         boolean isBarrier) {
-
-      // Context stageContext = SparkEventListener.contextByStageId.get(stageId);
 
       Stage stage = ApacheSparkSingletons.findStage(stageId);
       Context stageContext = ApacheSparkSingletons.getStageContext(stage);

@@ -1,4 +1,4 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v3;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;

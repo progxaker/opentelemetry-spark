@@ -1,6 +1,6 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v3;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
-import static io.opentelemetry.javaagent.instrumentation.spark.v3.ApacheSparkSingletons.registerJob;
+import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.registerJob;
 import static net.bytebuddy.asm.Advice.*;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 

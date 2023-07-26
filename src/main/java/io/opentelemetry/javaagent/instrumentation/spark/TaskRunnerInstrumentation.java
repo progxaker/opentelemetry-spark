@@ -1,6 +1,6 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v3;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
-import static io.opentelemetry.javaagent.instrumentation.spark.v3.ApacheSparkSingletons.*;
+import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.*;
 
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
@@ -37,9 +37,12 @@ public class TaskRunnerInstrumentation implements TypeInstrumentation {
     public static void onEnter(
         @Advice.This Executor.TaskRunner taskRunner,
         @Advice.Local("otelContext") Context context,
-        @Advice.Local("otelScope") Scope scope) {
+        @Advice.Local("otelScope") Scope scope)
+        throws IllegalAccessException {
 
-      TaskDescription taskDescription = taskRunner.taskDescription();
+      TaskDescription taskDescription =
+          io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.getTaskDescription(
+              taskRunner);
 
       Properties localProperties = taskDescription.properties();
       Context rootContext = Java8BytecodeBridge.rootContext();
@@ -63,9 +66,12 @@ public class TaskRunnerInstrumentation implements TypeInstrumentation {
         @Advice.This Executor.TaskRunner taskRunner,
         @Advice.Thrown Throwable exception,
         @Advice.Local("otelContext") Context context,
-        @Advice.Local("otelScope") Scope scope) {
+        @Advice.Local("otelScope") Scope scope)
+        throws IllegalAccessException {
 
-      TaskDescription taskDescription = taskRunner.taskDescription();
+      TaskDescription taskDescription =
+          io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.getTaskDescription(
+              taskRunner);
 
       if (scope == null) {
         return;

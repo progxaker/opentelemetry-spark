@@ -1,9 +1,10 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v3;
+package io.opentelemetry.javaagent.instrumentation.spark.v3_1;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.*;
 import io.opentelemetry.context.Context;
+import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -12,7 +13,7 @@ import org.apache.spark.util.JsonProtocol;
 import scala.Some;
 import scala.Tuple2;
 import scala.collection.Iterator;
-import scala.collection.JavaConversions;
+import scala.collection.JavaConverters;
 import scala.collection.Seq;
 
 public class SparkEventListener {
@@ -25,9 +26,6 @@ public class SparkEventListener {
 
   private static final AttributeKey<String> EVENT_DOMAIN_ATTR_KEY =
       AttributeKey.stringKey("event.domain");
-
-  private static final AttributeKey<String> SPARK_EVENT_ATTR_KEY =
-      AttributeKey.stringKey("spark.event");
 
   private static final AttributeKey<String> SPARK_APPLICATION_NAME_ATTR_KEY =
       AttributeKey.stringKey("spark.application_name");
@@ -65,7 +63,6 @@ public class SparkEventListener {
 
     Span s = Span.fromContext(applicationContext);
 
-    // JsonAST.JValue jvalue = JsonProtocol.sparkEventToJson(event);
     String eventJson = JsonProtocol.sparkEventToJsonString(event);
 
     String eventName = event.getClass().getSimpleName();
@@ -91,7 +88,7 @@ public class SparkEventListener {
 
   public static void onJobStart(SparkListenerJobStart event) {
 
-    Integer jobId = event.jobId();
+    int jobId = event.jobId();
     ActiveJob job = ApacheSparkSingletons.findJob(jobId);
     Context parentContext = Context.current();
 
@@ -112,7 +109,7 @@ public class SparkEventListener {
 
   public static void onJobEnd(SparkListenerJobEnd event) {
 
-    Integer jobId = event.jobId();
+    int jobId = event.jobId();
     ActiveJob job = ApacheSparkSingletons.findJob(jobId);
 
     Context jobContext = ApacheSparkSingletons.getJobContext(job);
@@ -138,15 +135,15 @@ public class SparkEventListener {
   public static void onStageSubmitted(SparkListenerStageSubmitted event) {
 
     StageInfo stageInfo = event.stageInfo();
-    Integer stageId = stageInfo.stageId();
+    int stageId = stageInfo.stageId();
 
     Stage stage = ApacheSparkSingletons.findStage(stageId);
 
-    Integer jobId = stage.firstJobId();
+    int jobId = stage.firstJobId();
     ActiveJob firstJob = ApacheSparkSingletons.findJob(jobId);
     Context firstJobContext = ApacheSparkSingletons.getJobContext(firstJob);
 
-    Integer attemptId = stageInfo.attemptNumber();
+    int attemptId = stageInfo.attemptNumber();
 
     Long submissionTime = (Long) stageInfo.submissionTime().get();
 
@@ -158,7 +155,7 @@ public class SparkEventListener {
             .setAttribute(SPARK_STAGE_ATTEMPT_NUMBER_ATTR_KEY, Long.valueOf(attemptId))
             .setStartTimestamp((Long) stageInfo.submissionTime().get(), TimeUnit.MILLISECONDS);
 
-    for (Object id : JavaConversions.asJavaCollection(stage.jobIds())) {
+    for (Object id : JavaConverters.asJavaCollection(stage.jobIds())) {
       Integer jid = (Integer) id;
       if (jid != firstJob.jobId()) {
         ActiveJob job = ApacheSparkSingletons.findJob(jid);
@@ -176,7 +173,7 @@ public class SparkEventListener {
 
   private static void onStageCompleted(SparkListenerStageCompleted event) {
     StageInfo stageInfo = event.stageInfo();
-    Integer stageId = stageInfo.stageId();
+    int stageId = stageInfo.stageId();
     stageInfo.completionTime();
     Stage stage = ApacheSparkSingletons.findStage(stageId);
     Context stageContext = ApacheSparkSingletons.getStageContext(stage);
@@ -271,28 +268,27 @@ public class SparkEventListener {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onExecutorBlacklisted(SparkListenerExecutorBlacklisted event) {
+  private static void onExecutorExcluded(SparkListenerExecutorExcluded event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onExecutorBlacklistedForStage(
-      SparkListenerExecutorBlacklistedForStage event) {
+  private static void onExecutorExcludedForStage(SparkListenerExecutorExcludedForStage event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onNodeBlacklistedForStage(SparkListenerNodeBlacklistedForStage event) {
+  private static void onNodeExcludedForStage(SparkListenerNodeExcludedForStage event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onExecutorUnblacklisted(SparkListenerExecutorUnblacklisted event) {
+  private static void onExecutorUnexcluded(SparkListenerExecutorUnexcluded event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onNodeBlacklisted(SparkListenerNodeBlacklisted event) {
+  private static void onNodeExcluded(SparkListenerNodeExcluded event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onNodeUnblacklisted(SparkListenerNodeUnblacklisted event) {
+  private static void onNodeUnexcluded(SparkListenerNodeUnexcluded event) {
     emitSparkEvent(event, event.time());
   }
 
@@ -306,6 +302,10 @@ public class SparkEventListener {
   }
 
   private static void onLogStart(SparkListenerLogStart event) {
+    emitSparkEvent(event);
+  }
+
+  private static void onResourceProfileAdded(SparkListenerResourceProfileAdded event) {
     emitSparkEvent(event);
   }
 
@@ -347,25 +347,26 @@ public class SparkEventListener {
       SparkEventListener.onExecutorAdded((SparkListenerExecutorAdded) event);
     } else if (event instanceof SparkListenerExecutorRemoved) {
       SparkEventListener.onExecutorRemoved((SparkListenerExecutorRemoved) event);
-    } else if (event instanceof SparkListenerExecutorBlacklisted) {
-      SparkEventListener.onExecutorBlacklisted((SparkListenerExecutorBlacklisted) event);
-    } else if (event instanceof SparkListenerExecutorBlacklistedForStage) {
-      SparkEventListener.onExecutorBlacklistedForStage(
-          (SparkListenerExecutorBlacklistedForStage) event);
-    } else if (event instanceof SparkListenerNodeBlacklistedForStage) {
-      SparkEventListener.onNodeBlacklistedForStage((SparkListenerNodeBlacklistedForStage) event);
-    } else if (event instanceof SparkListenerExecutorUnblacklisted) {
-      SparkEventListener.onExecutorUnblacklisted((SparkListenerExecutorUnblacklisted) event);
-    } else if (event instanceof SparkListenerNodeBlacklisted) {
-      SparkEventListener.onNodeBlacklisted((SparkListenerNodeBlacklisted) event);
-    } else if (event instanceof SparkListenerNodeUnblacklisted) {
-      SparkEventListener.onNodeUnblacklisted((SparkListenerNodeUnblacklisted) event);
+    } else if (event instanceof SparkListenerExecutorExcluded) {
+      SparkEventListener.onExecutorExcluded((SparkListenerExecutorExcluded) event);
+    } else if (event instanceof SparkListenerExecutorExcludedForStage) {
+      SparkEventListener.onExecutorExcludedForStage((SparkListenerExecutorExcludedForStage) event);
+    } else if (event instanceof SparkListenerNodeExcludedForStage) {
+      SparkEventListener.onNodeExcludedForStage((SparkListenerNodeExcludedForStage) event);
+    } else if (event instanceof SparkListenerExecutorUnexcluded) {
+      SparkEventListener.onExecutorUnexcluded((SparkListenerExecutorUnexcluded) event);
+    } else if (event instanceof SparkListenerNodeExcluded) {
+      SparkEventListener.onNodeExcluded((SparkListenerNodeExcluded) event);
+    } else if (event instanceof SparkListenerNodeUnexcluded) {
+      SparkEventListener.onNodeUnexcluded((SparkListenerNodeUnexcluded) event);
     } else if (event instanceof SparkListenerBlockUpdated) {
       SparkEventListener.onBlockUpdated((SparkListenerBlockUpdated) event);
     } else if (event instanceof SparkListenerExecutorMetricsUpdate) {
       SparkEventListener.onExecutorMetricsUpdate((SparkListenerExecutorMetricsUpdate) event);
     } else if (event instanceof SparkListenerLogStart) {
       SparkEventListener.onLogStart((SparkListenerLogStart) event);
+    } else if (event instanceof SparkListenerResourceProfileAdded) {
+      SparkEventListener.onResourceProfileAdded((SparkListenerResourceProfileAdded) event);
     } else {
       SparkEventListener.onOtherEvent(event);
     }

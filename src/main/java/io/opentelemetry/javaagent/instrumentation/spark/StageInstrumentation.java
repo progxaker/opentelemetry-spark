@@ -1,4 +1,4 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v3;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
 import static net.bytebuddy.asm.Advice.Argument;
 import static net.bytebuddy.matcher.ElementMatchers.*;
