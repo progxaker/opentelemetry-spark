@@ -87,7 +87,7 @@ dependencies {
      NB! Only Advice (and "helper") classes of instrumentation modules can access classes from application classpath.
      See https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/main/docs/contributing/writing-instrumentation-module.md#advice-classes
      */
-    compileOnly group: 'org.apache.spark', name: 'spark-core_2.11', version: '2.4.8'
+    compileOnly group: 'org.apache.spark', name: 'spark-core_2.12', version: '3.4.1'
 
     //All dependencies below are only for tests
     testImplementation("org.testcontainers:testcontainers:1.18.1")

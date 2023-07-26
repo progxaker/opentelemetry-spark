@@ -1,4 +1,4 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
+package io.opentelemetry.javaagent.instrumentation.spark.v3;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;
@@ -10,7 +10,6 @@ import io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor;
 import io.opentelemetry.instrumentation.api.instrumenter.Instrumenter;
 import io.opentelemetry.instrumentation.api.instrumenter.SpanNameExtractor;
 import io.opentelemetry.instrumentation.api.util.VirtualField;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import javax.annotation.Nullable;
@@ -105,17 +104,6 @@ public class ApacheSparkSingletons {
       initTaskInstrumenter();
     }
     return TASK_RUNNER_INSTRUMENTER;
-  }
-
-  public static TaskDescription getTaskDescription(Executor.TaskRunner taskRunner)
-      throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-    if (taskDescriptionAccessor == null) {
-      taskDescriptionAccessor =
-          Executor.TaskRunner.class.getMethod(
-              "org$apache$spark$executor$Executor$TaskRunner$$taskDescription", new Class[0]);
-    }
-
-    return (TaskDescription) taskDescriptionAccessor.invoke(taskRunner);
   }
 
   private ApacheSparkSingletons() {}

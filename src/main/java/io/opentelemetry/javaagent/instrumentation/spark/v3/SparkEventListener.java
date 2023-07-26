@@ -1,4 +1,4 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
+package io.opentelemetry.javaagent.instrumentation.spark.v3;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.scheduler.*;
 import org.apache.spark.util.JsonProtocol;
-import org.json4s.JsonAST;
-import org.json4s.jackson.JsonMethods$;
 import scala.Some;
 import scala.Tuple2;
 import scala.collection.Iterator;
@@ -67,8 +65,8 @@ public class SparkEventListener {
 
     Span s = Span.fromContext(applicationContext);
 
-    JsonAST.JValue jvalue = JsonProtocol.sparkEventToJson(event);
-    String eventJson = JsonMethods$.MODULE$.compact(jvalue);
+    // JsonAST.JValue jvalue = JsonProtocol.sparkEventToJson(event);
+    String eventJson = JsonProtocol.sparkEventToJsonString(event);
 
     String eventName = event.getClass().getSimpleName();
     Attributes attrs =

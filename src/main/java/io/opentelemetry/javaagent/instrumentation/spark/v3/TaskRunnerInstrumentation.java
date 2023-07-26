@@ -1,13 +1,12 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
+package io.opentelemetry.javaagent.instrumentation.spark.v3;
 
-import static io.opentelemetry.javaagent.instrumentation.spark.v2_4.ApacheSparkSingletons.*;
+import static io.opentelemetry.javaagent.instrumentation.spark.v3.ApacheSparkSingletons.*;
 
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.javaagent.bootstrap.Java8BytecodeBridge;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Properties;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.method.MethodDescription;
@@ -38,10 +37,9 @@ public class TaskRunnerInstrumentation implements TypeInstrumentation {
     public static void onEnter(
         @Advice.This Executor.TaskRunner taskRunner,
         @Advice.Local("otelContext") Context context,
-        @Advice.Local("otelScope") Scope scope)
-        throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        @Advice.Local("otelScope") Scope scope) {
 
-      TaskDescription taskDescription = getTaskDescription(taskRunner);
+      TaskDescription taskDescription = taskRunner.taskDescription();
 
       Properties localProperties = taskDescription.properties();
       Context rootContext = Java8BytecodeBridge.rootContext();
@@ -65,10 +63,9 @@ public class TaskRunnerInstrumentation implements TypeInstrumentation {
         @Advice.This Executor.TaskRunner taskRunner,
         @Advice.Thrown Throwable exception,
         @Advice.Local("otelContext") Context context,
-        @Advice.Local("otelScope") Scope scope)
-        throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
+        @Advice.Local("otelScope") Scope scope) {
 
-      TaskDescription taskDescription = getTaskDescription(taskRunner);
+      TaskDescription taskDescription = taskRunner.taskDescription();
 
       if (scope == null) {
         return;

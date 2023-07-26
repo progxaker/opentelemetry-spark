@@ -1,7 +1,7 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
+package io.opentelemetry.javaagent.instrumentation.spark.v3;
 
-import static io.opentelemetry.javaagent.instrumentation.spark.v2_4.ApacheSparkSingletons.OPEN_TELEMETRY;
-import static io.opentelemetry.javaagent.instrumentation.spark.v2_4.ApacheSparkSingletons.PROPERTIES_TEXT_MAP_ACCESSOR;
+import static io.opentelemetry.javaagent.instrumentation.spark.v3.ApacheSparkSingletons.OPEN_TELEMETRY;
+import static io.opentelemetry.javaagent.instrumentation.spark.v3.ApacheSparkSingletons.PROPERTIES_TEXT_MAP_ACCESSOR;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
 import io.opentelemetry.context.Context;

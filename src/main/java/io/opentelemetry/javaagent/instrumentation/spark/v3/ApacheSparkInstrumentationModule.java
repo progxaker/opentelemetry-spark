@@ -1,4 +1,4 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
+package io.opentelemetry.javaagent.instrumentation.spark.v3;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.javaagent.extension.instrumentation.InstrumentationModule;
@@ -12,7 +12,7 @@ import net.bytebuddy.matcher.ElementMatcher;
 public class ApacheSparkInstrumentationModule extends InstrumentationModule {
 
   public ApacheSparkInstrumentationModule() {
-    super("apache-spark", "apache-spark-2.4");
+    super("apache-spark", "apache-spark-3");
   }
 
   @Override
@@ -35,10 +35,10 @@ public class ApacheSparkInstrumentationModule extends InstrumentationModule {
   @Override
   public List<String> getAdditionalHelperClassNames() {
     return Arrays.asList(
-        "io.opentelemetry.javaagent.instrumentation.spark.v2_4.SparkEventListener",
-        "io.opentelemetry.javaagent.instrumentation.spark.v2_4.ApacheSparkSingletons",
-        "io.opentelemetry.javaagent.instrumentation.spark.v2_4.SparkAppResource",
-        "io.opentelemetry.javaagent.instrumentation.spark.v2_4.SparkAppResourceProvider",
-        "io.opentelemetry.javaagent.instrumentation.spark.v2_4.PropertiesTextMapAccessor");
+        "io.opentelemetry.javaagent.instrumentation.spark.v3.SparkEventListener",
+        "io.opentelemetry.javaagent.instrumentation.spark.v3.ApacheSparkSingletons",
+        "io.opentelemetry.javaagent.instrumentation.spark.v3.SparkAppResource",
+        "io.opentelemetry.javaagent.instrumentation.spark.v3.SparkAppResourceProvider",
+        "io.opentelemetry.javaagent.instrumentation.spark.v3.PropertiesTextMapAccessor");
   }
 }
