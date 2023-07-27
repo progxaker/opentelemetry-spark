@@ -7,6 +7,7 @@ import io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers;
 import io.opentelemetry.javaagent.instrumentation.spark.ActiveJobInstrumentation;
 import io.opentelemetry.javaagent.instrumentation.spark.StageInstrumentation;
 import io.opentelemetry.javaagent.instrumentation.spark.TaskRunnerInstrumentation;
+import io.opentelemetry.javaagent.instrumentation.spark.v2_4.TaskInstrumentation;
 import java.util.Arrays;
 import java.util.List;
 import net.bytebuddy.matcher.ElementMatcher;

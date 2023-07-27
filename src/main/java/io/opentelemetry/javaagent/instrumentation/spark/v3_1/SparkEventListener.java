@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.scheduler.*;
 import org.apache.spark.util.JsonProtocol;
+import org.json4s.JsonAST;
+import org.json4s.jackson.JsonMethods$;
 import scala.Some;
 import scala.Tuple2;
 import scala.collection.Iterator;
@@ -63,7 +65,9 @@ public class SparkEventListener {
 
     Span s = Span.fromContext(applicationContext);
 
-    String eventJson = JsonProtocol.sparkEventToJsonString(event);
+    JsonAST.JValue jvalue = JsonProtocol.sparkEventToJson(event);
+
+    String eventJson = JsonMethods$.MODULE$.compact(jvalue);
 
     String eventName = event.getClass().getSimpleName();
     Attributes attrs =
