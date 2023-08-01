@@ -2,18 +2,18 @@ package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.trace.*;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
+import io.opentelemetry.javaagent.instrumentation.spark.JsonProtocol;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.scheduler.*;
-import org.apache.spark.util.JsonProtocol;
-import org.json4s.JsonAST;
-import org.json4s.jackson.JsonMethods$;
 import scala.Some;
 import scala.Tuple2;
 import scala.collection.Iterator;
@@ -30,9 +30,6 @@ public class SparkEventListener {
 
   private static final AttributeKey<String> EVENT_DOMAIN_ATTR_KEY =
       AttributeKey.stringKey("event.domain");
-
-  private static final AttributeKey<String> SPARK_EVENT_ATTR_KEY =
-      AttributeKey.stringKey("spark.event");
 
   private static final AttributeKey<String> SPARK_APPLICATION_NAME_ATTR_KEY =
       AttributeKey.stringKey("spark.application_name");
@@ -64,71 +61,38 @@ public class SparkEventListener {
     applicationContext = applicationSpan.storeInContext(Context.current());
   }
 
-  private static void emitSparkEvent(SparkListenerEvent event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void emitSparkEvent(SparkListenerEvent event) {
     emitSparkEvent(event, null);
   }
 
-  private static void initSparkEventToJsonMethod()
-      throws NoSuchMethodException, ClassNotFoundException {
-    if (SPARK_EVENT_TO_JSON_METHOD == null) {
-      Class cls = JsonProtocol.class;
-      SPARK_EVENT_TO_JSON_METHOD = cls.getMethod("sparkEventToJson", SparkListenerEvent.class);
-    }
-  }
-
-  private static void emitSparkEvent(SparkListenerEvent event, Long time)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
-
-    if (SPARK_EVENT_TO_JSON_METHOD == null) {
-      initSparkEventToJsonMethod();
-    }
+  private static void emitSparkEvent(SparkListenerEvent event, Long time) {
 
     Span s = Span.fromContext(applicationContext);
 
-    JsonAST.JValue jvalue = (JsonAST.JValue) SPARK_EVENT_TO_JSON_METHOD.invoke(null, event);
-    String eventJson = JsonMethods$.MODULE$.compact(jvalue);
+    String eventJsonString = JsonProtocol.sparkEventToJsonString(event);
 
     String eventName = event.getClass().getSimpleName();
     Attributes attrs =
         Attributes.of(EVENT_NAME_ATTR_KEY, eventName, EVENT_DOMAIN_ATTR_KEY, SPARK_EVENT_DOMAIN);
 
     if (time != null) {
-      s.addEvent(eventJson, attrs, time, TimeUnit.MILLISECONDS);
+      s.addEvent(eventJsonString, attrs, time, TimeUnit.MILLISECONDS);
     } else {
-      s.addEvent(eventJson, attrs);
+      s.addEvent(eventJsonString, attrs);
     }
   }
 
-  public static void onApplicationStart(SparkListenerApplicationStart event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  public static void onApplicationStart(SparkListenerApplicationStart event) {
     emitSparkEvent(event, event.time());
   }
 
-  public static void onApplicationEnd(SparkListenerApplicationEnd event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  public static void onApplicationEnd(SparkListenerApplicationEnd event) {
     emitSparkEvent(event, event.time());
     applicationSpan.end(event.time(), TimeUnit.MILLISECONDS);
     applicationContext = null;
   }
 
-  public static void onJobStart(SparkListenerJobStart event)
-      throws ClassNotFoundException,
-          InvocationTargetException,
-          IllegalAccessException,
-          NoSuchMethodException {
+  public static void onJobStart(SparkListenerJobStart event) {
 
     Integer jobId = event.jobId();
     ActiveJob job = ApacheSparkSingletons.findJob(jobId);
@@ -149,11 +113,7 @@ public class SparkEventListener {
     emitSparkEvent(event, event.time());
   }
 
-  public static void onJobEnd(SparkListenerJobEnd event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  public static void onJobEnd(SparkListenerJobEnd event) {
 
     Integer jobId = event.jobId();
     ActiveJob job = ApacheSparkSingletons.findJob(jobId);
@@ -178,11 +138,7 @@ public class SparkEventListener {
     emitSparkEvent(event, event.time());
   }
 
-  public static void onStageSubmitted(SparkListenerStageSubmitted event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  public static void onStageSubmitted(SparkListenerStageSubmitted event) {
 
     StageInfo stageInfo = event.stageInfo();
     Integer stageId = stageInfo.stageId();
@@ -221,11 +177,7 @@ public class SparkEventListener {
     emitSparkEvent(event, submissionTime);
   }
 
-  private static void onStageCompleted(SparkListenerStageCompleted event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onStageCompleted(SparkListenerStageCompleted event) {
     StageInfo stageInfo = event.stageInfo();
     Integer stageId = stageInfo.stageId();
     stageInfo.completionTime();
@@ -248,27 +200,15 @@ public class SparkEventListener {
     emitSparkEvent(event, completionTime);
   }
 
-  private static void onTaskStart(SparkListenerTaskStart event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onTaskStart(SparkListenerTaskStart event) {
     emitSparkEvent(event, event.taskInfo().launchTime());
   }
 
-  private static void onTaskEnd(SparkListenerTaskEnd event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onTaskEnd(SparkListenerTaskEnd event) {
     emitSparkEvent(event, event.taskInfo().finishTime());
   }
 
-  private static void onOtherEvent(SparkListenerEvent event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onOtherEvent(SparkListenerEvent event) {
     emitSparkEvent(event);
   }
 
@@ -314,135 +254,79 @@ public class SparkEventListener {
     PENDING_EVENTS.clear();
   }
 
-  private static void onTaskGettingResult(SparkListenerTaskGettingResult event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onTaskGettingResult(SparkListenerTaskGettingResult event) {
     emitSparkEvent(event);
   }
 
-  private static void onSpeculativeTaskSubmitted(SparkListenerSpeculativeTaskSubmitted event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onSpeculativeTaskSubmitted(SparkListenerSpeculativeTaskSubmitted event) {
     emitSparkEvent(event);
   }
 
-  private static void onBlockManagerAdded(SparkListenerBlockManagerAdded event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onBlockManagerAdded(SparkListenerBlockManagerAdded event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onBlockManagerRemoved(SparkListenerBlockManagerRemoved event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onBlockManagerRemoved(SparkListenerBlockManagerRemoved event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onUnpersistRDD(SparkListenerUnpersistRDD event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onUnpersistRDD(SparkListenerUnpersistRDD event) {
     emitSparkEvent(event);
   }
 
-  private static void onExecutorAdded(SparkListenerExecutorAdded event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onExecutorAdded(SparkListenerExecutorAdded event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onExecutorRemoved(SparkListenerExecutorRemoved event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onExecutorRemoved(SparkListenerExecutorRemoved event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onExecutorBlacklisted(SparkListenerExecutorBlacklisted event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  @SuppressWarnings("deprecation")
+  private static void onExecutorBlacklisted(SparkListenerExecutorBlacklisted event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onExecutorBlacklistedForStage(SparkListenerExecutorBlacklistedForStage event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  @SuppressWarnings("deprecation")
+  private static void onExecutorBlacklistedForStage(
+      SparkListenerExecutorBlacklistedForStage event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onNodeBlacklistedForStage(SparkListenerNodeBlacklistedForStage event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  @SuppressWarnings("deprecation")
+  private static void onNodeBlacklistedForStage(SparkListenerNodeBlacklistedForStage event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onExecutorUnblacklisted(SparkListenerExecutorUnblacklisted event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  @SuppressWarnings("deprecation")
+  private static void onExecutorUnblacklisted(SparkListenerExecutorUnblacklisted event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onNodeBlacklisted(SparkListenerNodeBlacklisted event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  @SuppressWarnings("deprecation")
+  private static void onNodeBlacklisted(SparkListenerNodeBlacklisted event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onNodeUnblacklisted(SparkListenerNodeUnblacklisted event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  @SuppressWarnings("deprecation")
+  private static void onNodeUnblacklisted(SparkListenerNodeUnblacklisted event) {
     emitSparkEvent(event, event.time());
   }
 
-  private static void onBlockUpdated(SparkListenerBlockUpdated event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onBlockUpdated(SparkListenerBlockUpdated event) {
     emitSparkEvent(event);
   }
 
-  private static void onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate event) {
     // TODO: Better if emit this as metrics?
     emitSparkEvent(event);
   }
 
-  private static void onLogStart(SparkListenerLogStart event)
-      throws InvocationTargetException,
-          IllegalAccessException,
-          ClassNotFoundException,
-          NoSuchMethodException {
+  private static void onLogStart(SparkListenerLogStart event) {
     emitSparkEvent(event);
   }
 
+  @SuppressWarnings("deprecation")
   public static void handleSparkListenerEvent(SparkListenerEvent event)
       throws InvocationTargetException,
           IllegalAccessException,

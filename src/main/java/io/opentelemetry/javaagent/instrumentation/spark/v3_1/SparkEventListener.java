@@ -2,16 +2,16 @@ package io.opentelemetry.javaagent.instrumentation.spark.v3_1;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.trace.*;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
+import io.opentelemetry.javaagent.instrumentation.spark.JsonProtocol;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.scheduler.*;
-import org.apache.spark.util.JsonProtocol;
-import org.json4s.JsonAST;
-import org.json4s.jackson.JsonMethods$;
 import scala.Some;
 import scala.Tuple2;
 import scala.collection.Iterator;
@@ -65,18 +65,16 @@ public class SparkEventListener {
 
     Span s = Span.fromContext(applicationContext);
 
-    JsonAST.JValue jvalue = JsonProtocol.sparkEventToJson(event);
-
-    String eventJson = JsonMethods$.MODULE$.compact(jvalue);
+    String eventJsonString = JsonProtocol.sparkEventToJsonString(event);
 
     String eventName = event.getClass().getSimpleName();
     Attributes attrs =
         Attributes.of(EVENT_NAME_ATTR_KEY, eventName, EVENT_DOMAIN_ATTR_KEY, SPARK_EVENT_DOMAIN);
 
     if (time != null) {
-      s.addEvent(eventJson, attrs, time, TimeUnit.MILLISECONDS);
+      s.addEvent(eventJsonString, attrs, time, TimeUnit.MILLISECONDS);
     } else {
-      s.addEvent(eventJson, attrs);
+      s.addEvent(eventJsonString, attrs);
     }
   }
 
