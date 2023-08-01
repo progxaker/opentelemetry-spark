@@ -1,4 +1,4 @@
-package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
 import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.OPEN_TELEMETRY;
 import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.PROPERTIES_TEXT_MAP_ACCESSOR;
@@ -7,14 +7,13 @@ import static net.bytebuddy.matcher.ElementMatchers.*;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
-import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
 import java.util.Properties;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import org.apache.spark.scheduler.Stage;
 
-public class TaskInstrumentation implements TypeInstrumentation {
+public class TaskInstrumentation_v2_4 implements TypeInstrumentation {
   @Override
   public ElementMatcher<TypeDescription> typeMatcher() {
     return named("org.apache.spark.scheduler.Task");

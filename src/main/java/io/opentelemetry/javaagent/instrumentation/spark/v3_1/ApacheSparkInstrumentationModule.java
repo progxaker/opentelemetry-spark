@@ -4,10 +4,7 @@ import com.google.auto.service.AutoService;
 import io.opentelemetry.javaagent.extension.instrumentation.InstrumentationModule;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers;
-import io.opentelemetry.javaagent.instrumentation.spark.ActiveJobInstrumentation;
-import io.opentelemetry.javaagent.instrumentation.spark.StageInstrumentation;
-import io.opentelemetry.javaagent.instrumentation.spark.TaskRunnerInstrumentation;
-import io.opentelemetry.javaagent.instrumentation.spark.v2_4.TaskInstrumentation;
+import io.opentelemetry.javaagent.instrumentation.spark.*;
 import java.util.Arrays;
 import java.util.List;
 import net.bytebuddy.matcher.ElementMatcher;
@@ -25,7 +22,8 @@ public class ApacheSparkInstrumentationModule extends InstrumentationModule {
         "org.apache.spark.scheduler.LiveListenerBus",
         "org.apache.spark.scheduler.Task",
         "org.apache.spark.executor.Executor$TaskRunner",
-        "org.apache.spark.scheduler.SparkListenerResourceProfileAdded");
+        "org.apache.spark.scheduler.SparkListenerResourceProfileAdded" // Added in Spark 3.1
+        );
   }
 
   public List<TypeInstrumentation> typeInstrumentations() {
@@ -34,7 +32,8 @@ public class ApacheSparkInstrumentationModule extends InstrumentationModule {
         new TaskRunnerInstrumentation(),
         new ActiveJobInstrumentation(),
         new StageInstrumentation(),
-        new TaskInstrumentation());
+        new TaskInstrumentation_v2_4(),
+        new TaskInstrumentation_v3_4());
   }
 
   @Override

@@ -6,6 +6,7 @@ import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers;
 import io.opentelemetry.javaagent.instrumentation.spark.ActiveJobInstrumentation;
 import io.opentelemetry.javaagent.instrumentation.spark.StageInstrumentation;
+import io.opentelemetry.javaagent.instrumentation.spark.TaskInstrumentation_v2_4;
 import io.opentelemetry.javaagent.instrumentation.spark.TaskRunnerInstrumentation;
 import java.util.Arrays;
 import java.util.List;
@@ -33,7 +34,7 @@ public class ApacheSparkInstrumentationModule extends InstrumentationModule {
         new TaskRunnerInstrumentation(),
         new ActiveJobInstrumentation(),
         new StageInstrumentation(),
-        new TaskInstrumentation());
+        new TaskInstrumentation_v2_4());
   }
 
   @Override
