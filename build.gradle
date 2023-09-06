@@ -12,8 +12,8 @@ plugins {
     id "com.github.johnrengelman.shadow" version "8.1.1"
     id "com.diffplug.spotless" version "6.19.0"
 
-    id "io.opentelemetry.instrumentation.muzzle-generation" version "1.26.0-alpha"
-    id "io.opentelemetry.instrumentation.muzzle-check" version "1.26.0-alpha"
+    id "io.opentelemetry.instrumentation.muzzle-generation" version "1.28.0-alpha"
+    id "io.opentelemetry.instrumentation.muzzle-check" version "1.28.0-alpha"
 }
 
 group 'io.kosong.opentelemetry.spark'
@@ -22,11 +22,11 @@ version '0.7.0-SNAPSHOT'
 ext {
     versions = [
             // this line is managed by .github/scripts/update-sdk-version.sh
-            opentelemetrySdk           : "1.26.0",
+            opentelemetrySdk           : "1.28.0",
 
             // these lines are managed by .github/scripts/update-version.sh
-            opentelemetryJavaagent     : "1.27.0-SNAPSHOT",
-            opentelemetryJavaagentAlpha: "1.27.0-alpha-SNAPSHOT",
+            opentelemetryJavaagent     : "1.28.0",
+            opentelemetryJavaagentAlpha: "1.28.0-alpha",
 
             junit                      : "5.9.3"
     ]
