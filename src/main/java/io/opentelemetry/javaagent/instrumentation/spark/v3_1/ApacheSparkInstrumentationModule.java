@@ -41,6 +41,7 @@ public class ApacheSparkInstrumentationModule extends InstrumentationModule {
     return Arrays.asList(
         "io.opentelemetry.javaagent.instrumentation.spark.v3_1.SparkEventListener",
         "io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons",
-        "io.opentelemetry.javaagent.instrumentation.spark.PropertiesTextMapAccessor");
+        "io.opentelemetry.javaagent.instrumentation.spark.PropertiesTextMapAccessor",
+        "io.opentelemetry.javaagent.instrumentation.spark.SparkEventLogger");
   }
 }

@@ -4,6 +4,7 @@ import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.AttributesBuilder;
+import io.opentelemetry.api.logs.LoggerProvider;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor;
@@ -30,6 +31,9 @@ public class ApacheSparkSingletons {
 
   public static final Tracer TRACER =
       OPEN_TELEMETRY.getTracer("io.opentelemetry.apache-spark", "0.7.0");
+
+  public static final LoggerProvider LOGGER_PROVIDER = OPEN_TELEMETRY.getLogsBridge();
+
   private static Instrumenter<TaskDescription, Object> TASK_RUNNER_INSTRUMENTER = null;
 
   public static final VirtualField<Stage, Context> STAGE_CONTEXT_VIRTUAL_FIELD =

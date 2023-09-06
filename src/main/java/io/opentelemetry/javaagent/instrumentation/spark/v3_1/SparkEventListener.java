@@ -1,36 +1,18 @@
 package io.opentelemetry.javaagent.instrumentation.spark.v3_1;
 
 import io.opentelemetry.api.common.AttributeKey;
-import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
-import io.opentelemetry.javaagent.instrumentation.spark.JsonProtocol;
-import java.util.LinkedList;
-import java.util.List;
+import io.opentelemetry.javaagent.instrumentation.spark.SparkEventLogger;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.scheduler.*;
 import scala.Some;
-import scala.Tuple2;
-import scala.collection.Iterator;
 import scala.collection.JavaConverters;
-import scala.collection.Seq;
 
 public class SparkEventListener {
-  private static Span applicationSpan;
-
-  private static Context applicationContext;
-
-  private static final AttributeKey<String> EVENT_NAME_ATTR_KEY =
-      AttributeKey.stringKey("event.name");
-
-  private static final AttributeKey<String> EVENT_DOMAIN_ATTR_KEY =
-      AttributeKey.stringKey("event.domain");
-
-  private static final AttributeKey<String> SPARK_APPLICATION_NAME_ATTR_KEY =
-      AttributeKey.stringKey("spark.application_name");
 
   private static final AttributeKey<Long> SPARK_JOB_ID_ATTR_KEY =
       AttributeKey.longKey("spark.job_id");
@@ -41,51 +23,12 @@ public class SparkEventListener {
   private static final AttributeKey<Long> SPARK_STAGE_ATTEMPT_NUMBER_ATTR_KEY =
       AttributeKey.longKey("spark.stage_attempt_number");
 
-  private static final String SPARK_EVENT_DOMAIN = "spark";
-
-  private static final List<SparkListenerEvent> PENDING_EVENTS = new LinkedList<>();
-
-  private static void initApplicationContext(String applicationName) {
-    // spark.app.name
-    applicationSpan =
-        ApacheSparkSingletons.TRACER
-            .spanBuilder("spark_application")
-            .setParent(Context.current())
-            .setAttribute(SPARK_APPLICATION_NAME_ATTR_KEY, applicationName)
-            .startSpan();
-
-    applicationContext = applicationSpan.storeInContext(Context.current());
-  }
-
-  private static void emitSparkEvent(SparkListenerEvent event) {
-    emitSparkEvent(event, null);
-  }
-
-  private static void emitSparkEvent(SparkListenerEvent event, Long time) {
-
-    Span s = Span.fromContext(applicationContext);
-
-    String eventJsonString = JsonProtocol.sparkEventToJsonString(event);
-
-    String eventName = event.getClass().getSimpleName();
-    Attributes attrs =
-        Attributes.of(EVENT_NAME_ATTR_KEY, eventName, EVENT_DOMAIN_ATTR_KEY, SPARK_EVENT_DOMAIN);
-
-    if (time != null) {
-      s.addEvent(eventJsonString, attrs, time, TimeUnit.MILLISECONDS);
-    } else {
-      s.addEvent(eventJsonString, attrs);
-    }
-  }
-
   public static void onApplicationStart(SparkListenerApplicationStart event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   public static void onApplicationEnd(SparkListenerApplicationEnd event) {
-    emitSparkEvent(event, event.time());
-    applicationSpan.end(event.time(), TimeUnit.MILLISECONDS);
-    applicationContext = null;
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   public static void onJobStart(SparkListenerJobStart event) {
@@ -100,13 +43,12 @@ public class SparkEventListener {
             .setAttribute(SPARK_JOB_ID_ATTR_KEY, Long.valueOf(jobId))
             .setParent(parentContext)
             .setStartTimestamp(event.time(), TimeUnit.MILLISECONDS)
-            .addLink(applicationSpan.getSpanContext())
             .startSpan();
     Context jobContext = jobSpan.storeInContext(parentContext);
 
     ApacheSparkSingletons.setJobContext(job, jobContext);
 
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   public static void onJobEnd(SparkListenerJobEnd event) {
@@ -131,7 +73,7 @@ public class SparkEventListener {
     jobSpan.end(event.time(), TimeUnit.MILLISECONDS);
     ApacheSparkSingletons.unregisterJob(job);
 
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   public static void onStageSubmitted(SparkListenerStageSubmitted event) {
@@ -170,7 +112,7 @@ public class SparkEventListener {
     Context stageContext = stageSpan.storeInContext(firstJobContext);
     ApacheSparkSingletons.setStageContext(stage, stageContext);
 
-    emitSparkEvent(event, submissionTime);
+    SparkEventLogger.emitSparkEvent(event, submissionTime);
   }
 
   private static void onStageCompleted(SparkListenerStageCompleted event) {
@@ -193,130 +135,95 @@ public class SparkEventListener {
     }
     ApacheSparkSingletons.unregisterStage(stage);
 
-    emitSparkEvent(event, completionTime);
+    SparkEventLogger.emitSparkEvent(event, completionTime);
   }
 
   private static void onTaskStart(SparkListenerTaskStart event) {
-    emitSparkEvent(event, event.taskInfo().launchTime());
+    SparkEventLogger.emitSparkEvent(event, event.taskInfo().launchTime());
   }
 
   private static void onTaskEnd(SparkListenerTaskEnd event) {
-    emitSparkEvent(event, event.taskInfo().finishTime());
+    SparkEventLogger.emitSparkEvent(event, event.taskInfo().finishTime());
   }
 
   private static void onOtherEvent(SparkListenerEvent event) {
-    emitSparkEvent(event);
-  }
-
-  private static String resolveApplicationNameFromEnvironmentEvent(
-      SparkListenerEnvironmentUpdate event) {
-    String ret = null;
-    Seq<Tuple2<String, String>> properties =
-        event.environmentDetails().get("Spark Properties").get();
-    Iterator<Tuple2<String, String>> iter = properties.iterator();
-    while (iter.hasNext()) {
-      Tuple2<String, String> kv = iter.next();
-      if ("spark.app.name".equals(kv._1())) {
-        ret = kv._2();
-        break;
-      }
-    }
-    return ret;
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   private static void onEnvironmentUpdate(SparkListenerEnvironmentUpdate event) {
-
-    if (applicationContext == null) {
-      String applicationName = resolveApplicationNameFromEnvironmentEvent(event);
-      initApplicationContext(applicationName);
-      handlePendingEvents();
-    }
-
-    emitSparkEvent(event);
-  }
-
-  private static void handlePendingEvents() {
-    for (SparkListenerEvent event : PENDING_EVENTS) {
-      handleSparkListenerEvent(event);
-    }
-    PENDING_EVENTS.clear();
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   private static void onTaskGettingResult(SparkListenerTaskGettingResult event) {
-    emitSparkEvent(event);
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   private static void onSpeculativeTaskSubmitted(SparkListenerSpeculativeTaskSubmitted event) {
-    emitSparkEvent(event);
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   private static void onBlockManagerAdded(SparkListenerBlockManagerAdded event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onBlockManagerRemoved(SparkListenerBlockManagerRemoved event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onUnpersistRDD(SparkListenerUnpersistRDD event) {
-    emitSparkEvent(event);
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   private static void onExecutorAdded(SparkListenerExecutorAdded event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onExecutorRemoved(SparkListenerExecutorRemoved event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onExecutorExcluded(SparkListenerExecutorExcluded event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onExecutorExcludedForStage(SparkListenerExecutorExcludedForStage event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onNodeExcludedForStage(SparkListenerNodeExcludedForStage event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onExecutorUnexcluded(SparkListenerExecutorUnexcluded event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onNodeExcluded(SparkListenerNodeExcluded event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onNodeUnexcluded(SparkListenerNodeUnexcluded event) {
-    emitSparkEvent(event, event.time());
+    SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   private static void onBlockUpdated(SparkListenerBlockUpdated event) {
-    emitSparkEvent(event);
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   private static void onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate event) {
     // TODO: Better if emit this as metrics?
-    emitSparkEvent(event);
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   private static void onLogStart(SparkListenerLogStart event) {
-    emitSparkEvent(event);
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   private static void onResourceProfileAdded(SparkListenerResourceProfileAdded event) {
-    emitSparkEvent(event);
+    SparkEventLogger.emitSparkEvent(event);
   }
 
   public static void handleSparkListenerEvent(SparkListenerEvent event) {
-
-    if (applicationContext == null) {
-      PENDING_EVENTS.add(event);
-    }
-
     if (event instanceof SparkListenerApplicationStart) {
       SparkEventListener.onApplicationStart((SparkListenerApplicationStart) event);
     } else if (event instanceof SparkListenerApplicationEnd) {
