@@ -39,7 +39,7 @@ public class TaskInstrumentation_v3_4 implements TypeInstrumentation {
 
   public static class Interceptor {
 
-    @Advice.OnMethodEnter()
+    @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void enter(
         int stageId,
         int stageAttemptId,

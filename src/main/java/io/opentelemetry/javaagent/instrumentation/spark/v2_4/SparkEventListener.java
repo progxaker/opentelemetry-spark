@@ -9,7 +9,6 @@ import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
 import io.opentelemetry.javaagent.instrumentation.spark.SparkEventLogger;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.scheduler.*;
-import scala.Some;
 import scala.collection.JavaConversions;
 
 public class SparkEventListener {
@@ -118,7 +117,6 @@ public class SparkEventListener {
   private static void onStageCompleted(SparkListenerStageCompleted event) {
     StageInfo stageInfo = event.stageInfo();
     Integer stageId = stageInfo.stageId();
-    stageInfo.completionTime();
     Stage stage = ApacheSparkSingletons.findStage(stageId);
     Context stageContext = ApacheSparkSingletons.getStageContext(stage);
 
@@ -126,14 +124,15 @@ public class SparkEventListener {
 
     if (stageContext != null) {
       Span span = Span.fromContext(stageContext);
-      if (stageInfo.failureReason() instanceof Some) {
+      String status = stageInfo.getStatusString();
+      if ("failed".equals(status)) {
         span.setStatus(StatusCode.ERROR, stageInfo.failureReason().get());
-      } else {
+      } else if ("succeeded".equals(status)) {
         span.setStatus(StatusCode.OK);
+        ApacheSparkSingletons.unregisterStage(stage);
       }
       span.end(completionTime, TimeUnit.MILLISECONDS);
     }
-    ApacheSparkSingletons.unregisterStage(stage);
 
     SparkEventLogger.emitSparkEvent(event, completionTime);
   }
