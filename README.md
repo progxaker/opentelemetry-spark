@@ -28,5 +28,5 @@ For example,
 ```
 
 ## Build Extension
-To build extension project, run `./gradle build`. The resulting jar file in `build/libs`.
+To build extension project, run `./gradlew build`. The resulting jar file in `build/libs`.
 ```
