@@ -25,6 +25,5 @@ hs_err_pid*
 /.gradle/
 /build/
 /dependency-reduced-pom.xml
-/gradle/
 /conf/
 /jars/
