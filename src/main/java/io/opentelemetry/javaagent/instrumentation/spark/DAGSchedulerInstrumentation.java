@@ -23,23 +23,25 @@
  */
 package io.opentelemetry.javaagent.instrumentation.spark;
 
-import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.OPEN_TELEMETRY;
-import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.PROPERTIES_TEXT_MAP_ACCESSOR;
+import static io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons.registerDagScheduler;
+import static net.bytebuddy.asm.Advice.*;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
-import io.opentelemetry.context.Context;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
-import java.util.Properties;
-import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
-import org.apache.spark.scheduler.Stage;
+import org.apache.spark.MapOutputTrackerMaster;
+import org.apache.spark.SparkContext;
+import org.apache.spark.SparkEnv;
+import org.apache.spark.scheduler.*;
+import org.apache.spark.storage.BlockManagerMaster;
+import org.apache.spark.util.Clock;
 
-public class TaskInstrumentation_v3_4 implements TypeInstrumentation {
+public class DAGSchedulerInstrumentation implements TypeInstrumentation {
   @Override
   public ElementMatcher<TypeDescription> typeMatcher() {
-    return named("org.apache.spark.scheduler.Task");
+    return named("org.apache.spark.scheduler.DAGScheduler");
   }
 
   @Override
@@ -47,41 +49,30 @@ public class TaskInstrumentation_v3_4 implements TypeInstrumentation {
 
     typeTransformer.applyAdviceToMethod(
         isConstructor()
-            .and(takesArgument(0, Integer.TYPE))
-            .and(takesArgument(1, Integer.TYPE))
-            .and(takesArgument(2, Integer.TYPE))
-            .and(takesArgument(3, Integer.TYPE))
-            .and(takesArgument(4, Properties.class))
-            .and(takesArgument(5, byte[].class))
-            .and(takesArgument(6, named("scala.Option")))
-            .and(takesArgument(7, named("scala.Option")))
-            .and(takesArgument(8, named("scala.Option")))
-            .and(takesArgument(9, Boolean.TYPE)),
+            .and(takesArgument(0, named("org.apache.spark.SparkContext")))
+            .and(takesArgument(1, named("org.apache.spark.scheduler.TaskScheduler")))
+            .and(takesArgument(2, named("org.apache.spark.scheduler.LiveListenerBus")))
+            .and(takesArgument(3, named("org.apache.spark.MapOutputTrackerMaster")))
+            .and(takesArgument(4, named("org.apache.spark.storage.BlockManagerMaster")))
+            .and(takesArgument(5, named("org.apache.spark.SparkEnv")))
+            .and(takesArgument(6, named("org.apache.spark.util.Clock"))),
         this.getClass().getName() + "$Interceptor");
   }
 
   public static class Interceptor {
 
-    @Advice.OnMethodEnter(suppress = Throwable.class)
-    public static void enter(
-        int stageId,
-        int stageAttemptId,
-        int partitionId,
-        int numPartitions,
-        Properties localProperties,
-        byte[] serializedTaskMetrics,
-        scala.Option jobId,
-        scala.Option appId,
-        scala.Option appAttemptId,
-        boolean isBarrier) {
+    @OnMethodExit()
+    public static void exit(
+        @This DAGScheduler dagScheduler,
+        @Argument(0) SparkContext sparkContext,
+        @Argument(1) TaskScheduler taskScheduler,
+        @Argument(2) LiveListenerBus liveListenerBus,
+        @Argument(3) MapOutputTrackerMaster mapOutputTrackerMaster,
+        @Argument(4) BlockManagerMaster blockManagerMaster,
+        @Argument(5) SparkEnv sparkEnv,
+        @Argument(6) Clock clock) {
 
-      Stage stage = ApacheSparkSingletons.findStage(stageId);
-      Context stageContext = ApacheSparkSingletons.getStageContext(stage);
-
-      OPEN_TELEMETRY
-          .getPropagators()
-          .getTextMapPropagator()
-          .inject(stageContext, localProperties, PROPERTIES_TEXT_MAP_ACCESSOR);
+      registerDagScheduler(dagScheduler);
     }
   }
 }

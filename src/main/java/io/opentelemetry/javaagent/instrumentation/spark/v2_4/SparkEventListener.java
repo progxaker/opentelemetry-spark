@@ -25,14 +25,12 @@ package io.opentelemetry.javaagent.instrumentation.spark.v2_4;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
 import io.opentelemetry.javaagent.instrumentation.spark.SparkEventLogger;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.scheduler.*;
-import scala.collection.JavaConversions;
 
 public class SparkEventListener {
 
@@ -56,7 +54,6 @@ public class SparkEventListener {
   public static void onJobStart(SparkListenerJobStart event) {
 
     Integer jobId = event.jobId();
-    ActiveJob job = ApacheSparkSingletons.findJob(jobId);
     Context parentContext = Context.current();
 
     Span jobSpan =
@@ -68,7 +65,7 @@ public class SparkEventListener {
             .startSpan();
     Context jobContext = jobSpan.storeInContext(parentContext);
 
-    ApacheSparkSingletons.setJobContext(job, jobContext);
+    ApacheSparkSingletons.storeJobContext(jobId, jobContext);
 
     SparkEventLogger.emitSparkEvent(event, event.time());
   }
@@ -76,9 +73,7 @@ public class SparkEventListener {
   public static void onJobEnd(SparkListenerJobEnd event) {
 
     Integer jobId = event.jobId();
-    ActiveJob job = ApacheSparkSingletons.findJob(jobId);
-
-    Context jobContext = ApacheSparkSingletons.getJobContext(job);
+    Context jobContext = ApacheSparkSingletons.getJobContext(jobId);
 
     Span jobSpan = Span.fromContext(jobContext);
 
@@ -93,55 +88,23 @@ public class SparkEventListener {
     }
 
     jobSpan.end(event.time(), TimeUnit.MILLISECONDS);
-    ApacheSparkSingletons.unregisterJob(job);
+    ApacheSparkSingletons.removeJobContext(jobId);
 
     SparkEventLogger.emitSparkEvent(event, event.time());
   }
 
   public static void onStageSubmitted(SparkListenerStageSubmitted event) {
-
     StageInfo stageInfo = event.stageInfo();
-    Integer stageId = stageInfo.stageId();
-
-    Stage stage = ApacheSparkSingletons.findStage(stageId);
-
-    Integer jobId = stage.firstJobId();
-    ActiveJob firstJob = ApacheSparkSingletons.findJob(jobId);
-    Context firstJobContext = ApacheSparkSingletons.getJobContext(firstJob);
-
-    Integer attemptId = stageInfo.attemptNumber();
-
+    int stageId = stageInfo.stageId();
     Long submissionTime = (Long) stageInfo.submissionTime().get();
-
-    SpanBuilder builder =
-        ApacheSparkSingletons.TRACER
-            .spanBuilder("spark_stage")
-            .setParent(firstJobContext)
-            .setAttribute(SPARK_STAGE_ID_ATTR_KEY, Long.valueOf(stageId))
-            .setAttribute(SPARK_STAGE_ATTEMPT_NUMBER_ATTR_KEY, Long.valueOf(attemptId))
-            .setStartTimestamp((Long) stageInfo.submissionTime().get(), TimeUnit.MILLISECONDS);
-
-    for (Object id : JavaConversions.asJavaCollection(stage.jobIds())) {
-      Integer jid = (Integer) id;
-      if (jid != firstJob.jobId()) {
-        ActiveJob job = ApacheSparkSingletons.findJob(jid);
-        Context jcontext = ApacheSparkSingletons.getJobContext(job);
-        Span s = Span.fromContext(jcontext);
-        builder.addLink(s.getSpanContext());
-      }
-    }
-    Span stageSpan = builder.startSpan();
-    Context stageContext = stageSpan.storeInContext(firstJobContext);
-    ApacheSparkSingletons.setStageContext(stage, stageContext);
-
+    ApacheSparkSingletons.createStageContext(stageId);
     SparkEventLogger.emitSparkEvent(event, submissionTime);
   }
 
   private static void onStageCompleted(SparkListenerStageCompleted event) {
     StageInfo stageInfo = event.stageInfo();
     Integer stageId = stageInfo.stageId();
-    Stage stage = ApacheSparkSingletons.findStage(stageId);
-    Context stageContext = ApacheSparkSingletons.getStageContext(stage);
+    Context stageContext = ApacheSparkSingletons.getStageContext(stageId);
 
     Long completionTime = (Long) stageInfo.completionTime().get();
 
@@ -152,9 +115,9 @@ public class SparkEventListener {
         span.setStatus(StatusCode.ERROR, stageInfo.failureReason().get());
       } else if ("succeeded".equals(status)) {
         span.setStatus(StatusCode.OK);
-        ApacheSparkSingletons.unregisterStage(stage);
       }
       span.end(completionTime, TimeUnit.MILLISECONDS);
+      ApacheSparkSingletons.removeStageContext(stageId);
     }
 
     SparkEventLogger.emitSparkEvent(event, completionTime);
