@@ -34,9 +34,8 @@ import java.util.Properties;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
-import org.apache.spark.scheduler.Stage;
 
-public class TaskInstrumentation_v2_4 implements TypeInstrumentation {
+public class TaskInstrumentation implements TypeInstrumentation {
   @Override
   public ElementMatcher<TypeDescription> typeMatcher() {
     return named("org.apache.spark.scheduler.Task");
@@ -50,19 +49,63 @@ public class TaskInstrumentation_v2_4 implements TypeInstrumentation {
             .and(takesArgument(0, Integer.TYPE))
             .and(takesArgument(1, Integer.TYPE))
             .and(takesArgument(2, Integer.TYPE))
+            .and(takesArgument(3, Integer.TYPE))
+            .and(takesArgument(4, Properties.class))
+            .and(takesArgument(5, byte[].class))
+            .and(takesArgument(6, named("scala.Option")))
+            .and(takesArgument(7, named("scala.Option")))
+            .and(takesArgument(8, named("scala.Option")))
+            .and(takesArgument(9, Boolean.TYPE)),
+        this.getClass().getName() + "$TaskAdvice_V3_4");
+    typeTransformer.applyAdviceToMethod(
+        isConstructor()
+            .and(takesArgument(0, Integer.TYPE))
+            .and(takesArgument(1, Integer.TYPE))
+            .and(takesArgument(2, Integer.TYPE))
             .and(takesArgument(3, Properties.class))
             .and(takesArgument(4, byte[].class))
             .and(takesArgument(5, named("scala.Option")))
             .and(takesArgument(6, named("scala.Option")))
             .and(takesArgument(7, named("scala.Option")))
             .and(takesArgument(8, Boolean.TYPE)),
-        this.getClass().getName() + "$Interceptor");
+        this.getClass().getName() + "$TaskAdvice_V2_4");
   }
 
-  public static class Interceptor {
+  public static class TaskAdvice_V3_4 {
 
     @Advice.OnMethodEnter(suppress = Throwable.class)
-    public static void enter(
+    public static void enterConstructor_v3_4(
+        int stageId,
+        int stageAttemptId,
+        int partitionId,
+        int numPartitions,
+        Properties localProperties,
+        byte[] serializedTaskMetrics,
+        scala.Option jobId,
+        scala.Option appId,
+        scala.Option appAttemptId,
+        boolean isBarrier) {
+
+      Context stageContext = ApacheSparkSingletons.getStageContext(stageId);
+
+      if (stageContext == null) {
+        stageContext = ApacheSparkSingletons.createStageContext(stageId);
+      }
+
+      if (stageContext != null) {
+
+        OPEN_TELEMETRY
+            .getPropagators()
+            .getTextMapPropagator()
+            .inject(stageContext, localProperties, PROPERTIES_TEXT_MAP_ACCESSOR);
+      }
+    }
+  }
+
+  public static class TaskAdvice_V2_4 {
+
+    @Advice.OnMethodEnter(suppress = Throwable.class)
+    public static void enterConstructor_v2_4(
         int stageId,
         int stageAttemptId,
         int partition,
@@ -73,13 +116,19 @@ public class TaskInstrumentation_v2_4 implements TypeInstrumentation {
         scala.Option appAttemptId,
         boolean isBarrier) {
 
-      Stage stage = ApacheSparkSingletons.findStage(stageId);
-      Context stageContext = ApacheSparkSingletons.getStageContext(stage);
+      Context stageContext = ApacheSparkSingletons.getStageContext(stageId);
 
-      OPEN_TELEMETRY
-          .getPropagators()
-          .getTextMapPropagator()
-          .inject(stageContext, localProperties, PROPERTIES_TEXT_MAP_ACCESSOR);
+      if (stageContext == null) {
+        stageContext = ApacheSparkSingletons.createStageContext(stageId);
+      }
+
+      if (stageContext != null) {
+
+        OPEN_TELEMETRY
+            .getPropagators()
+            .getTextMapPropagator()
+            .inject(stageContext, localProperties, PROPERTIES_TEXT_MAP_ACCESSOR);
+      }
     }
   }
 }

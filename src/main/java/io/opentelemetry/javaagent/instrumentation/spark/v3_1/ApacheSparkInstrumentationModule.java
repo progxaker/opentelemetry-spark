@@ -52,11 +52,9 @@ public class ApacheSparkInstrumentationModule extends InstrumentationModule {
   public List<TypeInstrumentation> typeInstrumentations() {
     return Arrays.asList(
         new LiveListenerBusInstrumentation(),
+        new DAGSchedulerInstrumentation(),
         new TaskRunnerInstrumentation(),
-        new ActiveJobInstrumentation(),
-        new StageInstrumentation(),
-        new TaskInstrumentation_v2_4(),
-        new TaskInstrumentation_v3_4());
+        new TaskInstrumentation());
   }
 
   @Override

@@ -28,20 +28,21 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.logs.LoggerProvider;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor;
 import io.opentelemetry.instrumentation.api.instrumenter.Instrumenter;
 import io.opentelemetry.instrumentation.api.instrumenter.SpanNameExtractor;
-import io.opentelemetry.instrumentation.api.util.VirtualField;
 import java.lang.reflect.Field;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.apache.spark.executor.Executor;
-import org.apache.spark.scheduler.ActiveJob;
-import org.apache.spark.scheduler.Stage;
-import org.apache.spark.scheduler.TaskDescription;
+import org.apache.spark.scheduler.*;
 
 public class ApacheSparkSingletons {
 
@@ -59,21 +60,22 @@ public class ApacheSparkSingletons {
 
   private static Instrumenter<TaskDescription, Object> TASK_RUNNER_INSTRUMENTER = null;
 
-  public static final VirtualField<Stage, Context> STAGE_CONTEXT_VIRTUAL_FIELD =
-      VirtualField.find(Stage.class, Context.class);
+  private static DAGScheduler DAG_SCHEDULER = null;
 
-  public static final VirtualField<ActiveJob, Context> JOB_CONTEXT_VIRTUAL_FIELD =
-      VirtualField.find(ActiveJob.class, Context.class);
-
-  private static SpanNameExtractor<TaskDescription> TASK_SPAN_NAME_EXTRACTOR =
+  private static final SpanNameExtractor<TaskDescription> TASK_SPAN_NAME_EXTRACTOR =
       taskDescription -> "spark_task";
 
+  private static final AttributeKey<Long> SPARK_STAGE_ID_ATTR_KEY =
+      AttributeKey.longKey("spark.stage_id");
+  private static final AttributeKey<Long> SPARK_STAGE_ATTEMPT_NUMBER_ATTR_KEY =
+      AttributeKey.longKey("spark.stage_attempt_number");
   private static final AttributeKey<Long> SPARK_TASK_ID_ATTR_KEY =
       AttributeKey.longKey("spark.task_id");
 
   private static final AttributeKey<Long> SPARK_TASK_ATTEMPT_NUMBER_ATTR_KEY =
       AttributeKey.longKey("spark.task_attempt_number");
-  private static AttributesExtractor<TaskDescription, Object> TASK_ATTRIBUTES_EXTRACTOR =
+
+  private static final AttributesExtractor<TaskDescription, Object> TASK_ATTRIBUTES_EXTRACTOR =
       new AttributesExtractor<TaskDescription, Object>() {
         @Override
         public void onStart(
@@ -93,11 +95,11 @@ public class ApacheSparkSingletons {
 
   private static Field taskDescriptionAccessor = null;
 
-  private static final Map<Integer, ActiveJob> JOB_REGISTRY = new HashMap<>();
+  private static final Map<Integer, Context> JOB_CONTEXT_REGISTRY = new ConcurrentHashMap<>();
 
-  private static final Map<Integer, Stage> STAGE_REGISTRY = new HashMap<>();
+  private static final Map<Integer, Context> STAGE_CONTEXT_REGISTRY = new ConcurrentHashMap<>();
 
-  private static void initTaskInstrumenter() {
+  private static void initTaskRunnerInstrumenter() {
 
     TASK_RUNNER_INSTRUMENTER =
         Instrumenter.builder(OPEN_TELEMETRY, INSTRUMENTATION_NAME, TASK_SPAN_NAME_EXTRACTOR)
@@ -105,33 +107,52 @@ public class ApacheSparkSingletons {
             .buildInstrumenter();
   }
 
-  public static ActiveJob findJob(Integer jobId) {
-    return JOB_REGISTRY.get(jobId);
+  public static void registerDagScheduler(DAGScheduler dagScheduler) {
+    DAG_SCHEDULER = dagScheduler;
   }
 
   public static Stage findStage(Integer stageId) {
-    return STAGE_REGISTRY.get(stageId);
+    return DAG_SCHEDULER.stageIdToStage().get(stageId).get();
   }
 
-  public static void setJobContext(ActiveJob job, Context context) {
-    JOB_CONTEXT_VIRTUAL_FIELD.set(job, context);
+  public static ActiveJob findJob(Integer jobId) {
+    return DAG_SCHEDULER.jobIdToActiveJob().get(jobId).get();
   }
 
-  public static Context getJobContext(ActiveJob job) {
-    return JOB_CONTEXT_VIRTUAL_FIELD.get(job);
+  public static String applicationName() {
+    if (DAG_SCHEDULER != null) {
+      return DAG_SCHEDULER.sc().appName();
+    }
+    return null;
   }
 
-  public static void setStageContext(Stage stage, Context context) {
-    STAGE_CONTEXT_VIRTUAL_FIELD.set(stage, context);
+  public static void storeJobContext(Integer jobId, Context context) {
+    JOB_CONTEXT_REGISTRY.put(jobId, context);
   }
 
-  public static Context getStageContext(Stage stage) {
-    return STAGE_CONTEXT_VIRTUAL_FIELD.get(stage);
+  public static Context getJobContext(Integer jobId) {
+    return JOB_CONTEXT_REGISTRY.get(jobId);
+  }
+
+  public static void removeJobContext(Integer jobId) {
+    JOB_CONTEXT_REGISTRY.remove(jobId);
+  }
+
+  public static void storeStageContext(Integer stageId, Context context) {
+    STAGE_CONTEXT_REGISTRY.put(stageId, context);
+  }
+
+  public static Context getStageContext(Integer stageId) {
+    return STAGE_CONTEXT_REGISTRY.get(stageId);
+  }
+
+  public static void removeStageContext(Integer stageId) {
+    STAGE_CONTEXT_REGISTRY.remove(stageId);
   }
 
   public static Instrumenter<TaskDescription, Object> taskRunnerInstrumenter() {
     if (TASK_RUNNER_INSTRUMENTER == null) {
-      initTaskInstrumenter();
+      initTaskRunnerInstrumenter();
     }
     return TASK_RUNNER_INSTRUMENTER;
   }
@@ -153,19 +174,43 @@ public class ApacheSparkSingletons {
 
   private ApacheSparkSingletons() {}
 
-  public static void registerJob(ActiveJob job) {
-    JOB_REGISTRY.put(job.jobId(), job);
-  }
+  public static Context createStageContext(Integer stageId) {
 
-  public static void registerStage(Stage stage) {
-    STAGE_REGISTRY.put(stage.id(), stage);
-  }
+    Stage stage = ApacheSparkSingletons.findStage(stageId);
+    Integer jobId = stage.firstJobId();
+    if (jobId != null) {
+      StageInfo stageInfo = stage.latestInfo();
+      Context jobContext = ApacheSparkSingletons.getJobContext(jobId);
+      SpanBuilder builder =
+          ApacheSparkSingletons.TRACER
+              .spanBuilder("spark_stage")
+              .setParent(jobContext)
+              .setAttribute(SPARK_STAGE_ID_ATTR_KEY, Long.valueOf(stageId))
+              .setAttribute(
+                  SPARK_STAGE_ATTEMPT_NUMBER_ATTR_KEY, Long.valueOf(stageInfo.attemptNumber()));
 
-  public static void unregisterJob(ActiveJob job) {
-    JOB_REGISTRY.remove(job.jobId());
-  }
+      Long submissionTime = (Long) stageInfo.submissionTime().get();
+      if (submissionTime != null) {
+        builder.setStartTimestamp(submissionTime, TimeUnit.MILLISECONDS);
+      }
+      Integer[] jobIds = new Integer[stage.jobIds().size()];
+      stage.jobIds().copyToArray(jobIds);
+      for (Integer jid : jobIds) {
+        if (!Objects.equals(jid, jobId)) {
+          Context jcontext = ApacheSparkSingletons.getJobContext(jid);
+          if (jcontext != null) {
+            Span s = Span.fromContext(jcontext);
+            builder.addLink(s.getSpanContext());
+          }
+        }
+      }
 
-  public static void unregisterStage(Stage stage) {
-    STAGE_REGISTRY.remove(stage.id());
+      Span stageSpan = builder.startSpan();
+      Context stageContext = stageSpan.storeInContext(jobContext);
+      ApacheSparkSingletons.storeStageContext(stageId, stageContext);
+      return stageContext;
+    } else {
+      return null;
+    }
   }
 }
