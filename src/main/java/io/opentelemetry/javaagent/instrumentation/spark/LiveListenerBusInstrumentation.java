@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package io.opentelemetry.javaagent.instrumentation.spark.v3_1;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
@@ -30,7 +30,8 @@ import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
-import org.apache.spark.scheduler.*;
+import org.apache.spark.scheduler.LiveListenerBus;
+import org.apache.spark.scheduler.SparkListenerEvent;
 
 public class LiveListenerBusInstrumentation implements TypeInstrumentation {
   @Override
