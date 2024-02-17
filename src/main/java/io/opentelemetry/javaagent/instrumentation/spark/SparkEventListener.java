@@ -21,14 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package io.opentelemetry.javaagent.instrumentation.spark.v3_1;
+package io.opentelemetry.javaagent.instrumentation.spark;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
-import io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons;
-import io.opentelemetry.javaagent.instrumentation.spark.SparkEventLogger;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.scheduler.*;
 
@@ -135,79 +133,6 @@ public class SparkEventListener {
     SparkEventLogger.emitSparkEvent(event);
   }
 
-  private static void onEnvironmentUpdate(SparkListenerEnvironmentUpdate event) {
-    SparkEventLogger.emitSparkEvent(event);
-  }
-
-  private static void onTaskGettingResult(SparkListenerTaskGettingResult event) {
-    SparkEventLogger.emitSparkEvent(event);
-  }
-
-  private static void onSpeculativeTaskSubmitted(SparkListenerSpeculativeTaskSubmitted event) {
-    SparkEventLogger.emitSparkEvent(event);
-  }
-
-  private static void onBlockManagerAdded(SparkListenerBlockManagerAdded event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onBlockManagerRemoved(SparkListenerBlockManagerRemoved event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onUnpersistRDD(SparkListenerUnpersistRDD event) {
-    SparkEventLogger.emitSparkEvent(event);
-  }
-
-  private static void onExecutorAdded(SparkListenerExecutorAdded event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onExecutorRemoved(SparkListenerExecutorRemoved event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onExecutorExcluded(SparkListenerExecutorExcluded event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onExecutorExcludedForStage(SparkListenerExecutorExcludedForStage event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onNodeExcludedForStage(SparkListenerNodeExcludedForStage event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onExecutorUnexcluded(SparkListenerExecutorUnexcluded event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onNodeExcluded(SparkListenerNodeExcluded event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onNodeUnexcluded(SparkListenerNodeUnexcluded event) {
-    SparkEventLogger.emitSparkEvent(event, event.time());
-  }
-
-  private static void onBlockUpdated(SparkListenerBlockUpdated event) {
-    SparkEventLogger.emitSparkEvent(event);
-  }
-
-  private static void onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate event) {
-    // TODO: Better if emit this as metrics?
-    SparkEventLogger.emitSparkEvent(event);
-  }
-
-  private static void onLogStart(SparkListenerLogStart event) {
-    SparkEventLogger.emitSparkEvent(event);
-  }
-
-  private static void onResourceProfileAdded(SparkListenerResourceProfileAdded event) {
-    SparkEventLogger.emitSparkEvent(event);
-  }
-
   public static void handleSparkListenerEvent(SparkListenerEvent event) {
     if (event instanceof SparkListenerApplicationStart) {
       SparkEventListener.onApplicationStart((SparkListenerApplicationStart) event);
@@ -225,42 +150,6 @@ public class SparkEventListener {
       SparkEventListener.onTaskStart((SparkListenerTaskStart) event);
     } else if (event instanceof SparkListenerTaskEnd) {
       SparkEventListener.onTaskEnd((SparkListenerTaskEnd) event);
-    } else if (event instanceof SparkListenerEnvironmentUpdate) {
-      SparkEventListener.onEnvironmentUpdate((SparkListenerEnvironmentUpdate) event);
-    } else if (event instanceof SparkListenerTaskGettingResult) {
-      SparkEventListener.onTaskGettingResult((SparkListenerTaskGettingResult) event);
-    } else if (event instanceof SparkListenerSpeculativeTaskSubmitted) {
-      SparkEventListener.onSpeculativeTaskSubmitted((SparkListenerSpeculativeTaskSubmitted) event);
-    } else if (event instanceof SparkListenerBlockManagerAdded) {
-      SparkEventListener.onBlockManagerAdded((SparkListenerBlockManagerAdded) event);
-    } else if (event instanceof SparkListenerBlockManagerRemoved) {
-      SparkEventListener.onBlockManagerRemoved((SparkListenerBlockManagerRemoved) event);
-    } else if (event instanceof SparkListenerUnpersistRDD) {
-      SparkEventListener.onUnpersistRDD((SparkListenerUnpersistRDD) event);
-    } else if (event instanceof SparkListenerExecutorAdded) {
-      SparkEventListener.onExecutorAdded((SparkListenerExecutorAdded) event);
-    } else if (event instanceof SparkListenerExecutorRemoved) {
-      SparkEventListener.onExecutorRemoved((SparkListenerExecutorRemoved) event);
-    } else if (event instanceof SparkListenerExecutorExcluded) {
-      SparkEventListener.onExecutorExcluded((SparkListenerExecutorExcluded) event);
-    } else if (event instanceof SparkListenerExecutorExcludedForStage) {
-      SparkEventListener.onExecutorExcludedForStage((SparkListenerExecutorExcludedForStage) event);
-    } else if (event instanceof SparkListenerNodeExcludedForStage) {
-      SparkEventListener.onNodeExcludedForStage((SparkListenerNodeExcludedForStage) event);
-    } else if (event instanceof SparkListenerExecutorUnexcluded) {
-      SparkEventListener.onExecutorUnexcluded((SparkListenerExecutorUnexcluded) event);
-    } else if (event instanceof SparkListenerNodeExcluded) {
-      SparkEventListener.onNodeExcluded((SparkListenerNodeExcluded) event);
-    } else if (event instanceof SparkListenerNodeUnexcluded) {
-      SparkEventListener.onNodeUnexcluded((SparkListenerNodeUnexcluded) event);
-    } else if (event instanceof SparkListenerBlockUpdated) {
-      SparkEventListener.onBlockUpdated((SparkListenerBlockUpdated) event);
-    } else if (event instanceof SparkListenerExecutorMetricsUpdate) {
-      SparkEventListener.onExecutorMetricsUpdate((SparkListenerExecutorMetricsUpdate) event);
-    } else if (event instanceof SparkListenerLogStart) {
-      SparkEventListener.onLogStart((SparkListenerLogStart) event);
-    } else if (event instanceof SparkListenerResourceProfileAdded) {
-      SparkEventListener.onResourceProfileAdded((SparkListenerResourceProfileAdded) event);
     } else {
       SparkEventListener.onOtherEvent(event);
     }

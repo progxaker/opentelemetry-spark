@@ -43,7 +43,8 @@ public class SparkEventLogger {
   private static final String SPARK_EVENT_DOMAIN = "spark";
 
   public static void emitSparkEvent(SparkListenerEvent event) {
-    emitSparkEvent(event, System.currentTimeMillis());
+
+    emitSparkEvent(event, null);
   }
 
   public static void emitSparkEvent(SparkListenerEvent event, Long timestamp) {
@@ -51,6 +52,14 @@ public class SparkEventLogger {
     String eventJsonString = JsonProtocol.sparkEventToJsonString(event);
 
     String eventName = event.getClass().getSimpleName();
+
+    if (timestamp == null) {
+      timestamp = EventTimeAccessor.getEventTime(event);
+    }
+
+    if (timestamp == null) {
+      timestamp = System.currentTimeMillis();
+    }
 
     if (eventJsonString != null) {
       SPARK_EVENT_LOGGER
