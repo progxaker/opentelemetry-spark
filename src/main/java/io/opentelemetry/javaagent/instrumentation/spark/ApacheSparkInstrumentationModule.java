@@ -53,5 +53,4 @@ public class ApacheSparkInstrumentationModule extends InstrumentationModule {
         new TaskRunnerInstrumentation(),
         new TaskInstrumentation());
   }
-
 }
