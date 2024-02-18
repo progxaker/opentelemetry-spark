@@ -37,11 +37,6 @@ public class SparkEventLogger {
   private static final AttributeKey<String> EVENT_NAME_ATTR_KEY =
       AttributeKey.stringKey("event.name");
 
-  private static final AttributeKey<String> EVENT_DOMAIN_ATTR_KEY =
-      AttributeKey.stringKey("event.domain");
-
-  private static final String SPARK_EVENT_DOMAIN = "spark";
-
   public static void emitSparkEvent(SparkListenerEvent event) {
 
     emitSparkEvent(event, null);
@@ -51,7 +46,7 @@ public class SparkEventLogger {
 
     String eventJsonString = JsonProtocol.sparkEventToJsonString(event);
 
-    String eventName = event.getClass().getSimpleName();
+    String eventName = String.format("spark.%s", event.getClass().getSimpleName());
 
     if (timestamp == null) {
       timestamp = EventTimeAccessor.getEventTime(event);
@@ -67,7 +62,6 @@ public class SparkEventLogger {
           .setTimestamp(timestamp, TimeUnit.MILLISECONDS)
           .setSeverity(Severity.INFO)
           .setAttribute(EVENT_NAME_ATTR_KEY, eventName)
-          .setAttribute(EVENT_DOMAIN_ATTR_KEY, SPARK_EVENT_DOMAIN)
           .setBody(eventJsonString)
           .emit();
     }
