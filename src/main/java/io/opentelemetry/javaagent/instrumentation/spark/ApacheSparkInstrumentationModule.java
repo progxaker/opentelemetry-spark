@@ -54,12 +54,4 @@ public class ApacheSparkInstrumentationModule extends InstrumentationModule {
         new TaskInstrumentation());
   }
 
-  @Override
-  public List<String> getAdditionalHelperClassNames() {
-    return Arrays.asList(
-        "io.opentelemetry.javaagent.instrumentation.spark.SparkEventListener",
-        "io.opentelemetry.javaagent.instrumentation.spark.ApacheSparkSingletons",
-        "io.opentelemetry.javaagent.instrumentation.spark.PropertiesTextMapAccessor",
-        "io.opentelemetry.javaagent.instrumentation.spark.SparkEventLogger");
-  }
 }
